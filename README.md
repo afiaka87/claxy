@@ -1,6 +1,6 @@
 # claxy
 
-My personal discord bot. Not really for public consumption. 
+My personal discord bot. Not really for public consumption. GPT-4 for language generation. Kandinsky 2.2 for image generation. Requires 8-12 GB VRAM to run.
 
 ## Setup
 
