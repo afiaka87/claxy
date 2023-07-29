@@ -1,11 +1,13 @@
 import base64
 import logging
 import os
+import random
 from io import BytesIO
 
 import discord
 import httpx
 import openai
+import python_weather
 import torch
 from discord.ext import commands
 
@@ -36,6 +38,13 @@ class ChatGPTDiscordClient(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+
+    async def get_temperature(self):
+        async with python_weather.Client(unit=python_weather.IMPERIAL) as weather_client:
+            current_weather = await weather_client.get('Fayetteville, AR')
+            print(current_weather.current.temperature)
+            return current_weather.current.temperature
+    
     async def run_krazinsky(
         self,
         prompt,
@@ -145,6 +154,7 @@ class ChatGPTDiscordClient(discord.Client):
         print("------")
         self.message_history = []
 
+    # TODO re-implement help
     # async def on_help(self, message):
     #     await message.channel.send(HELP_MESSAGE)
     #     return
@@ -172,7 +182,6 @@ class ChatGPTDiscordClient(discord.Client):
         if message.content.strip().startswith("%"):
             gpt_model_name = "gpt-4-0613"
         else:
-            # gpt_model_name = "gpt-4-32k"
             gpt_model_name = "gpt-3.5-turbo-0613"
         user_prompt = message.content.replace("!", "").strip()
 
@@ -199,19 +208,57 @@ class ChatGPTDiscordClient(discord.Client):
             return response.json()
 
     async def on_message(self, message: discord.Message):
+        if message.content.strip().startswith("!temp"):
+            temp = await self.get_temperature()
+            await message.channel.send(f"Current temperature in Fayetteville, AR: {temp} F")
+            return
+        
+        if message.content.strip().startswith("!cat"):
+            await message.channel.send("https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif")
+            return
+
+        if message.content.strip().startswith("!eval"):
+            # parse message and calculate
+            expression = message.content.strip().replace("!eval", "").strip()
+            print(f"Calculating: {expression}")
+            try:
+                # eval the expression
+                result = eval(expression)
+                await message.channel.send(f"Result: {result}")
+            except Exception as e:
+                await message.channel.send(f"Error: {e}")
+            return
+
+        if message.content.strip().startswith("!random"):
+            # generate a random number
+            number = random.randint(0, 1000000)
+            await message.channel.send(f"Random number: {number}")
+            return
+
 
         # if "sd" (whitespace separated) is a word in the message, we send it to the sd api
         if message.content.strip().lower().startswith("kr"):
             await self.on_kr(message)
             return
+
         # use the message as system role prompt
         if message.content.strip().startswith("!system"):
             await self.on_system_message(message)
             return
 
-        # elif message.content.strip().startswith("!help"):
-        #     await message.channel.send(HELP_MESSAGE)
-        #     return
+        HELP_MESSAGE = """
+        **Claxy Help**
+        **!system** - set the system prompt
+        **!eval** - evaluate a mathematical expression
+        **!random** - generate a random number
+        **!temp** - get the current temperature in Fayetteville, AR
+        **!cat** - get a random cat gif
+        **!kr** - generate a Krazinsky image
+        **!help** - show this help message
+        """
+        if message.content.strip().startswith("!help"):
+            await message.channel.send(HELP_MESSAGE)
+            return
 
         elif message.content.strip().startswith(
             "!"
